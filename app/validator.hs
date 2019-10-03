@@ -301,7 +301,7 @@ instance FromJSON Margin where
 
 instance FromJSON PledgeAddress where
   parseJSON = AE.withText "PledgeAddress" $ \v ->
-    case Bech32.decode v of
+    case Bech32.decodeLenient v of
       Left e -> fail $ "Pledge address error: " <> show e
       Right (humanPart, dataPart) -> pure $ PledgeAddress humanPart dataPart
 
