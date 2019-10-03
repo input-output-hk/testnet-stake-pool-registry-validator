@@ -13,5 +13,4 @@ let
   iohk
     = repo: rev: s: subdir: cabal2nix "input-output-hk" repo rev s "--subpath ${subdir}";
 in {
-  bech32 = iohk "bech32" "6e6b5f2ff8a61265ff0fa12b5c01614f9c747d92" "0h40w417jgc3pn3a5f8bd8bd92rgy43g8ab6pdspkfv11il155ig" ".";
 }
