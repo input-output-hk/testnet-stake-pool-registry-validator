@@ -95,10 +95,8 @@ newtype SubmissionFile =
 data Submission = Submission
   { sId :: !Id
   , sTicker :: !Ticker
-  , sCost :: !Cost
     -- | Absolute URI.
   , sHomepage :: !URI.URI
-  , sMargin :: !Margin
   , sPledgeAddress :: Maybe PledgeAddress
   }
 
@@ -109,12 +107,6 @@ newtype Id = Id { unId :: Text }
 -- | Stake pool ticker, a 3-4 all-ASCII-uppercase character ID.
 newtype Ticker = Ticker { unTicker :: Text }
   deriving (Eq, Ord, Show)
-
--- | Non-negative Scientific.
-newtype Cost = Cost { unCost :: Sci.Scientific }
-
--- | Rational in range [0, 1]
-newtype Margin = Margin { unMargin :: Sci.Scientific }
 
 -- | Bech32-encoded address.
 data PledgeAddress = PledgeAddress
@@ -247,9 +239,7 @@ instance FromJSON Submission where
       [] -> Submission
               <$> v .: "id" <?> AE.Key "id"
               <*> v .: "ticker" <?> AE.Key "ticker"
-              <*> v .: "cost" <?> AE.Key "cost"
               <*> v .: "homepage" <?> AE.Key "homepate"
-              <*> v .: "margin" <?> AE.Key "margin"
               <*> v .:? "pledge_address" <?> AE.Key "pledge_address"
       xs -> fail $ List.unlines xs
     where validateFields :: AE.Object -> [String]
@@ -261,7 +251,7 @@ instance FromJSON Submission where
             where
               keys, mandatory, optional', missing, unexpected :: Set Text
               keys = Set.fromList $ HMap.keys v
-              mandatory = Set.fromList ["id", "ticker", "cost", "homepage", "margin"]
+              mandatory = Set.fromList ["id", "ticker", "homepage"]
               optional' = Set.fromList ["pledge_address"]
               missing = mandatory `Set.difference` keys
               unexpected = keys `Set.difference` (mandatory <> optional')
@@ -286,18 +276,6 @@ instance FromJSON URI.URI where
     case URI.parseAbsoluteURI (unpack v) of
       Nothing -> fail $ "Not an absolute URI: " <> unpack v
       Just x -> pure x
-
-instance FromJSON Cost where
-  parseJSON = _withBoundedScientific "Cost" $ \x ->
-    if not (x >= 0)
-    then fail "Value of cost must be: (x >= 0)"
-    else pure $ Cost x
-
-instance FromJSON Margin where
-  parseJSON = _withBoundedScientific "Margin" $ \x ->
-    if  not (x >= 0.0 && x <= 1.0)
-    then fail "Value of margin must be: (x >= 0.0 && x <= 1.0)"
-    else pure $ Margin x
 
 instance FromJSON PledgeAddress where
   parseJSON = AE.withText "PledgeAddress" $ \v ->
