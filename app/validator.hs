@@ -100,8 +100,8 @@ data Submission = Submission
   , sPledgeAddress :: Maybe PledgeAddress
   }
 
--- | Stake pool ID, also its 32-byte public key.
-newtype Id = Id { unId :: Text }
+-- | Stake pool ID, Bech32-encoded public key.
+newtype Id = Id { unId :: Bech32 }
   deriving (Eq)
 
 -- | Stake pool ticker, a 3-4 all-ASCII-uppercase character ID.
@@ -109,10 +109,16 @@ newtype Ticker = Ticker { unTicker :: Text }
   deriving (Eq, Ord, Show)
 
 -- | Bech32-encoded address.
-data PledgeAddress = PledgeAddress
-  { paHumanReadable :: Bech32.HumanReadablePart
-  , paDataPart :: Bech32.DataPart
-  }
+newtype PledgeAddress = PledgeAddress { unPledgeAddress :: Bech32 }
+
+-- | Represent all information from the Bech32 decoder.
+data Bech32 = Bech32
+  { bechHumanReadable :: Bech32.HumanReadablePart
+  , bechDataPart      :: Bech32.DataPart
+  } deriving (Eq)
+
+instance Show Bech32 where
+  show = show . bechHumanReadable
 
 -- | Given a stake pool registry root and a submission file,
 --   perform full validation of relative file structure
@@ -154,7 +160,7 @@ validateRegistrySubmission (RegistryRoot root) (SubmissionFile fp) = do
     ["Submission filename doesn't have .json extension: " <> pack file
     | ext /= ".json" ]
 
-  pubkey <- case validatePublicKey (pack pubkeyFile) of
+  pubkey <- case validatePublicKey Ed25519 (pack pubkeyFile) of
     Left e -> err $
       ["Submission filename (actually public key) invalid: " <> e]
     Right x -> pure x
@@ -207,18 +213,27 @@ validateRegistrySubmission (RegistryRoot root) (SubmissionFile fp) = do
          (bimap (("While parsing '"<>f<>"': ")<>) sTicker) . AE.eitherDecode . BSL.fromStrict
            <$> BS.readFile f
 
+-- | Type of public key.
+data PubKeyType
+  = Ed25519
+
+instance Show PubKeyType where
+  show Ed25519 = "ed25519"
+
+registryPubKeyType :: PubKeyType
+registryPubKeyType = Ed25519
+
 --------------------------------------------------------------------------------
 -- * Ancillary
 --
 -- | Submission identifier is actually a 32-byte base16-encoded public key.
 --   We additionally require that the hexadecimal must be all-lowercase.
-validatePublicKey :: Text -> Either Text Id
-validatePublicKey text =
-  if      not (length s == 64 && all Char.isHexDigit s)
-  then fail $ "Public key not a 64-char-long base16: " <> take 128 s
-  else if not ((Char.toLower <$> s) == s)
+validatePublicKey :: PubKeyType -> Text -> Either Text Id
+validatePublicKey pkType text =
+  if      not ((Char.toLower <$> s) == s)
   then fail $ "Public key not all-lowercase: " <> s
-  else Right $ Id text
+  else Id <$> decodeBech32 "Public key" Bech32.decode
+       (pack (show pkType) <> "_" <> text)
   where s = unpack text
 
 duplicates :: (Ord a) => [a] -> Set a
@@ -261,7 +276,7 @@ instance FromJSON Submission where
 
 instance FromJSON Id where
   parseJSON = AE.withText "Id" $
-    (either (fail . unpack) pure) . validatePublicKey
+    (either (fail . unpack) pure) . validatePublicKey registryPubKeyType
 
 instance FromJSON Ticker where
   parseJSON = AE.withText "Ticker" $ \v ->
@@ -277,11 +292,17 @@ instance FromJSON URI.URI where
       Nothing -> fail $ "Not an absolute URI: " <> unpack v
       Just x -> pure x
 
+-- | Given a description and a Bech32 decoder, run it on the input text.
+decodeBech32 :: String -> (Text -> Either Bech32.DecodingError (Bech32.HumanReadablePart, Bech32.DataPart)) -> Text -> Either Text Bech32
+decodeBech32 desc decoder text =
+  case decoder text of
+    Left e -> fail $ desc <> " decoding error for '"<>unpack text<>"':\n" <> show e
+    Right (humanPart, dataPart) -> pure $ Bech32 humanPart dataPart
+
 instance FromJSON PledgeAddress where
-  parseJSON = AE.withText "PledgeAddress" $ \v ->
-    case Bech32.decodeLenient v of
-      Left e -> fail $ "Pledge address error: " <> show e
-      Right (humanPart, dataPart) -> pure $ PledgeAddress humanPart dataPart
+  parseJSON = AE.withText "PledgeAddress" $ \v->
+    either (fail . unpack) (pure . PledgeAddress) $
+      decodeBech32 "Pledge address" Bech32.decodeLenient v
 
 -- | @'withBoundedScientific' expected f value@ applies @f@ to the 'Scientific' number
 -- when @value@ is a 'Number' and fails using @'typeMismatch' expected@

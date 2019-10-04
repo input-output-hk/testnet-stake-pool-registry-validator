@@ -39,7 +39,7 @@ validateGitHistory() {
         test "${history_length}" = 1 ||
                 error "Git history:  submissions must contain exactly a single commit (this one has ${history_length})."
 
-        banner "Validating file structure.."
+        banner "Validating change structure.."
 
         local delta_files=$(git diff --compact-summary ${delta} --name-status | wc -l)
         test "${delta_files}" = 2 ||
