@@ -38,13 +38,13 @@ Detected branch parameters:
  - signature:         ${sig}
 EOF
 
-banner "Building validator.."
+banner "Building registry tool.."
 
-nix-build --no-build-output -o validator $(dirname $0)/default.nix
+nix-build --no-build-output -o tool $(dirname $0)/default.nix
 
 banner "Validating submission content:"
 
-cmd="validator/bin/validator --registry-root $(realpath ".") --registry-submission $(realpath ${entry})"
+cmd="tool/bin/registry validate-submission --registry-root $(realpath ".") --registry-submission $(realpath ${entry})"
 cat <<EOF
    ${cmd}
 

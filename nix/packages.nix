@@ -20,15 +20,15 @@ let
     ghc.cabal-install
   ];
   localPackages  = with ghc; with pkgs.lib; with builtins; {};
-  final-inferred = ghc.callCabal2nix "validator" ../. {};
+  final-inferred = ghc.callCabal2nix "registry" ../. {};
 in {
   inherit ghc;
 
-  validator = final-inferred;
+  registry = final-inferred;
 
   shell     = ghc.shellFor {
     packages    = p: [final-inferred];
     withHoogle  = true;
-    buildInputs = extras;
+    buildInputs = extras ++ [final-inferred];
   };
 }

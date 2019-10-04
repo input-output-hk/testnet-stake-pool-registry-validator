@@ -1,23 +1,76 @@
-* Stake pool registry submission validator
-*** Prerequisites
+* What
 
-    Nix is used for supplying package dependencies.
+This is an environment that provides:
 
-*** Build
+1. A Nix shell with =jcli= and =registry= tools, and, based on the those, means for:
+2. Registry entry formation, via =registry prepare-submission= subcommand,
+3. Registry entry validation, via =registry validate-submission= subcommand,
+4. Signature verification, via =jcli key verify=.
 
-    : nix-build -o validator
+* Prerequisites
+
+  1. Nix is used for supplying package dependencies.
+
+  2. Nix must be configured to use IOHK's build cache, otherwise you'll be waiting
+     for a rather long build.
+
+     For this, your =/etc/nix/nix.conf= must contain IOHK's public keys (besides the
+     standard NixOS keys):
+
+#+BEGIN_SRC ini
+substituters = http://cache.nixos.org/ https://hydra.iohk.io
+trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= hydra.iohk.io-1:E8yDJv2SBXM6PQPVbhCWK7VvitistFYSH2u3AuwCiu4= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
+#+END_SRC
+
+* Usage
+
+  1. Enter the Nix shell:
+
+    : nix-shell --no-build-output -j 8
 
 *** Run
 
 #+BEGIN_SRC sh
-sh$ validator/bin/validator  --help
-validator - validate testnet stake pool registry submission entries.
+[nix-shell:~/registry]$ registry --help 
+registry - process testnet stake pool registry submissions
 
-Usage: validator --registry-root FILEPATH --registry-submission FILEPATH
+Usage: registry COMMAND
 
 Available options:
-  --registry-root FILEPATH Root directory of the testnet stake pool registry.
-  --registry-submission FILEPATH
-                           File to scrutinise for registry submission.
   -h,--help                Show this help text
+
+Available commands:
+  validate-submission      Validate stake pool registry entry submission.
+  prepare-submission       Make a stake pool registry entry submission.
+#+END_SRC
+
+#+BEGIN_SRC sh
+[nix-shell:~/registry]$ jcli --help 
+jcli 0.5.5
+dev@iohk.io
+Jormungandr CLI toolkit
+
+USAGE:
+    jcli [FLAGS] [SUBCOMMAND]
+
+FLAGS:
+        --full-version      display full version details (software version, source version,
+                            targets and compiler used)
+    -h, --help              Prints help information
+        --source-version    display the sources version, allowing to check the source's hash
+                            used to compile this executable. this option is useful for
+                            scripting retrieving the logs of the version of this application.
+    -V, --version           Prints version information
+
+SUBCOMMANDS:
+    address            Address tooling and helper
+    auto-completion    Auto completion
+    certificate        Certificate generation tool
+    debug              Debug tools for developers
+    genesis            Block tooling and helper
+    help               Prints this message or the help of the given subcommand(s)
+    key                Key Generation
+    rest               Send request to node REST API
+    transaction        Build and view offline transaction
+    utils              Utilities that perform specialized tasks
 #+END_SRC
