@@ -1,0 +1,22 @@
+* What
+
+  The two scripts, =mkall.sh= and =mk.sh= generate the test case branches for the
+  registry, locally.
+
+* Prerequisites
+
+  1. =jcli= and the =registry= tool -- actually supplied by the Nix shell in this
+     repository,
+  2. a checkout of the stake pool registry.
+
+* Usage
+
+  1. Enter the Nix shell at the top level of this repository,
+  2. While inside the shell, create a checkout of the =master= branch of the
+     registry somewhere, and change the current directory into its =registry=
+     subdirectory,
+  3. Run the =mkall.sh= script using its relative path, like that:
+
+     : ../../../path/to/validator/tests/mkall.sh
+
+  4. Watch everything burn.
