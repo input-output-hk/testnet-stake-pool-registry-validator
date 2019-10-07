@@ -89,6 +89,9 @@ eval $inc; $def  'del(.homepage)' '' \
 eval $inc; $def  'del(.id)' '' \
 "$i-missing-mandatory"
 
+eval $inc; $def  'del(.pledge_address)' '' \
+"$i-missing-mandatory-pledge"
+
 eval $inc; $def  '.id=3.141592653589793' '' \
 "$i-mandatory-field-type"
 

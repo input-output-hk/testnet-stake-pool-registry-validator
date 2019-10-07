@@ -45,7 +45,8 @@ if test -z "${NO_GENERATE}"
 then registry prepare-submission \
        --public-key-file ${pub} \
        --ticker ${ticker} \
-       --pool-web https://12345 &&
+       --pool-web https://12345 \
+       --pledge-address ed25519_pk15vz9yc5c3upgze8tg5kd7kkzxqgqfxk5a3kudp22hdg0l2za00sq2ufkk7 &&
        if test ! -f ${id}.json
        then echo "ERROR: ${id}.json wasn't created!" >&2; exit 1; fi; fi
 
