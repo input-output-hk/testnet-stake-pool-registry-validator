@@ -61,8 +61,8 @@ main = do
     case cmd of
       ValidateSubmission root submission ->
         void $ validateRegistrySubmission root submission
-      PrepareSubmission ticker uri mpledge fp ->
-        prepareRegistrySubmission ticker uri mpledge fp
+      PrepareSubmission ticker uri pledge fp ->
+        prepareRegistrySubmission ticker uri pledge fp
           >>= writeRegistrySubmission
   case res of
     Left e -> do
@@ -114,8 +114,8 @@ parseCLI = Opt.subparser $
      (Opt.option (Opt.eitherReader validateURI) $
        long opt <> help desc <> metavar "URI")
 
-   parsePledgeAddress :: String -> String -> Parser (Maybe PledgeAddress)
-   parsePledgeAddress opt desc = Opt.optional $
+   parsePledgeAddress :: String -> String -> Parser PledgeAddress
+   parsePledgeAddress opt desc =
      (Opt.option (Opt.eitherReader validatePledgeAddress) $
        long opt <> help desc <> metavar "PLEDGE-ADDRESS")
 
@@ -146,8 +146,8 @@ data CLI
       -- ^ Ticker, 3-4 upper-case ASCII letters.
       !URI.URI
       -- ^ Absolute URI of the stake pool  homepage.
-      !(Maybe PledgeAddress) 
-      -- ^ Ticker, 3-4 upper-case ASCII letters.
+      !PledgeAddress 
+      -- ^ Pledge address, Bech32-encoded.
       !PublicKeyFile
       -- ^ Public key file, Bech32-encoded.
 
@@ -168,7 +168,7 @@ data Submission = Submission
   , sTicker :: !Ticker
     -- | Absolute URI.
   , sHomepage :: !URI.URI
-  , sPledgeAddress :: Maybe PledgeAddress
+  , sPledgeAddress :: PledgeAddress
   } deriving (Generic)
 
 -- | Stake pool ID, Bech32-encoded public key.
@@ -207,10 +207,10 @@ computeFullPublicKeyText = ((pack (show registryPubKeyType) <> "_") <>)
 prepareRegistrySubmission
   :: Ticker
   -> URI.URI
-  -> Maybe PledgeAddress
+  -> PledgeAddress
   -> PublicKeyFile
   -> ExceptT Text IO Submission
-prepareRegistrySubmission ticker uri mpledge (PublicKeyFile fp) = do
+prepareRegistrySubmission ticker uri pledge (PublicKeyFile fp) = do
   unlessM (lift $ Dir.doesFileExist fp) $
     checks ["Public key doesn't exist: " <> pack fp]
   unlessM (lift $ Dir.readable <$> Dir.getPermissions fp) $
@@ -219,7 +219,7 @@ prepareRegistrySubmission ticker uri mpledge (PublicKeyFile fp) = do
   contents <- Text.strip <$> (lift $ Text.readFile fp)
   pubKey <- validatePublicKey contents
 
-  pure $ Submission pubKey ticker uri mpledge
+  pure $ Submission pubKey ticker uri pledge
  where
    err :: [Text] -> ExceptT Text IO a
    err es = ExceptT . pure . Left . Text.unlines $ es
@@ -404,7 +404,7 @@ instance FromJSON Submission where
               <$> v .: "id" <?> AE.Key "id"
               <*> v .: "ticker" <?> AE.Key "ticker"
               <*> v .: "homepage" <?> AE.Key "homepate"
-              <*> v .:? "pledge_address" <?> AE.Key "pledge_address"
+              <*> v .: "pledge_address" <?> AE.Key "pledge_address"
       xs -> fail $ List.unlines xs
     where validateFields :: AE.Object -> [String]
           validateFields v =
@@ -415,8 +415,13 @@ instance FromJSON Submission where
             where
               keys, mandatory, optional', missing, unexpected :: Set Text
               keys = Set.fromList $ HMap.keys v
-              mandatory = Set.fromList ["id", "ticker", "homepage"]
-              optional' = Set.fromList ["pledge_address"]
+              mandatory = Set.fromList
+                [ "id"
+                , "ticker"
+                , "homepage"
+                , "pledge_address"
+                ]
+              optional' = mempty
               missing = mandatory `Set.difference` keys
               unexpected = keys `Set.difference` (mandatory <> optional')
 
@@ -438,12 +443,11 @@ instance FromJSON PledgeAddress where
 
 instance ToJSON Submission where
   toJSON s = AE.object $
-    [ "id"       .= sId s
-    , "ticker"   .= sTicker s
-    , "homepage" .= sHomepage s
+    [ "id"                   .= sId s
+    , "ticker"               .= sTicker s
+    , "homepage"             .= sHomepage s
+    , "pledge_address"       .= sPledgeAddress s
     ]
-    <> [ "pledge_address" .= pa
-    | Just pa <- [sPledgeAddress s]]
 
 instance ToJSON Id where
   toJSON = toJSON . unId
