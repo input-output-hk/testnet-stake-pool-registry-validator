@@ -3,12 +3,16 @@
 set -eu
 
 NO_GENERATE=
+NO_SIG=
 NO_PRECLEAN=
 NO_POSTCLEAN=
 SAME_BRANCH=
 ID=
+PRV_FILE=
 while true; do case "$1" in
+                       --private ) PRV_FILE="$2"; shift 2;;
                        --no-generate ) NO_GENERATE=1; shift;;
+                       --no-sig ) NO_SIG=1; shift;;
                        --no-preclean ) NO_PRECLEAN=1; shift;;
                        --no-postclean ) NO_POSTCLEAN=1; shift;;
                        --same-branch ) SAME_BRANCH=1; shift;;
@@ -16,11 +20,13 @@ while true; do case "$1" in
                        -v | --verbose ) set -x; shift;;
                        * ) break; esac; done
 
-prv=$(mktemp)
+prv=${PRV_FILE:-$(mktemp -t)}
 pub=${prv}.pub
 tmp=$(mktemp)
 atexit() {
-        rm -f ${prv} ${pub} ${tmp}
+        rm -f ${pub} ${tmp}
+        if test -z "${PRV_FILE}"
+        then rm -f ${prv}; fi
 }
 trap atexit EXIT
 
@@ -30,8 +36,9 @@ then git checkout "master"
      git clean -f; fi
 
 if test -z "${ID}"
-then jcli key generate    --type ed25519 ${prv}
-     jcli key to-public          --input ${prv} ${pub}; fi
+then if test -z "${PRV_FILE}"
+     then jcli key generate --type "ed25519" ${prv}; fi
+     jcli key to-public            --input   ${prv} ${pub}; fi
 
 id=${ID:-$(cut -d_ -f2 ${pub} | head -n1)}
 
@@ -55,8 +62,9 @@ then jq  --indent 4 --join-output \
         "$JSONtransform" > ${tmp} < ${id}.json &&
      mv -f                 ${tmp}   ${id}.json; fi
 
-if test -z "${NO_GENERATE}"
-then echo 1                       > ${id}.sig; fi
+if test -z "${NO_SIG}"
+then rm -f ${id}.sig
+     jcli key sign --secret-key ${prv} --output ${id}.sig ${id}.json; fi
 
 if test -n "$SHtransform"
 then eval ${SHtransform}; fi

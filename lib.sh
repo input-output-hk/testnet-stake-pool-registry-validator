@@ -1,10 +1,12 @@
 entry=
 sig=
+pub=
 error() {
         echo "ERROR: $*" >&2
         test -f "${entry}" &&
                 cat >&2 <<EOF
-sig ${sig}
+sig ${sig}:
+$(cat ${sig})
 entry ${entry}:
 $(cat ${entry})
 
@@ -77,5 +79,10 @@ validateGitHistory() {
 validateCommitMessage() {
         test "${BUILDKITE_MESSAGE}" = "${expected_commit_message}" ||
                 error "Message:  commit message must be:  ${expected_commit_message}"
-       
+}
+
+validateSignature() {
+        pub=$(mktemp "XXXXXXXXX.pub")
+        jq '.id' ${entry} | xargs echo > ${pub}
+        jcli key verify --public-key ${pub} --signature "${sig}" "${entry}"
 }

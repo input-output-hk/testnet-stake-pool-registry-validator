@@ -34,7 +34,7 @@ let
     # Hash of git repo and all of its submodules.
     sha256 = "03ijiqhsv17px2lnpzq3bvpq3dy8pmlqdrda100l3mkk1qb7ayjc";
     # Hash of all Cargo dependencies.
-    cargoSha256 = "0ms8inl8cp5fla6xvrdgwjkya192mq0181n9yxfm0sk1ncnj8wgc";
+    cargoSha256 = "1pp829azj6aw68ba637rm852sj61nxznxfzrlqs9ds6adk9h7abs";
   };
 
 in {

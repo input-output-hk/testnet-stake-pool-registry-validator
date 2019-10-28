@@ -4,10 +4,22 @@ set -e
 
 git clean -f
 git checkout master
-git branch | grep -v master | sed 's/*//g' | xargs git branch -D || true
+git branch | grep -v master | sed 's/*//g' | xargs git branch -D 2>/dev/null || true
 def="$(dirname $0)/mk.sh"
 inc='i=$((i+1)); total=$((total+1))'
 total=0
+
+###
+### Create basis
+###
+$def --same-branch '.ticker="TICK"' '' \
+'' 'TICK:  new'
+
+key01=$(mktemp -t "XXXXXXXXXX.prv")
+jcli key generate --type "ed25519" ${key01}
+
+$def --same-branch --private ${key01} '.ticker="FST"' '' \
+'' 'FST:  new'
 
 ###
 ### Valid cases
@@ -15,14 +27,11 @@ total=0
 $def  '' '' \
 "00-new"
 
-f=$(ls *.json | head -n1 | xargs echo)
-id=$(jq .id <$f | xargs echo | cut -d_ -f2)
-echo f=${f} id=${id}
-$def --no-generate --id "${id}" '.ticker="OTHR"' 'echo 2 > ${id}.sig' \
-"01-update"       "OTHR:  update"
+$def --private ${key01} --no-generate '.ticker="OTHR"' '' \
+"01-update-ticker"       "OTHR:  update"
 
-$def  '.pledge_address="ed25519_pk1uadm2958qvrta7e0j275ftrxtth5p9txaqq3gg9z5fxg0zxq0d3sa9yyys"' '' \
-"02-pledging"
+$def --private ${key01} --no-generate '.pledge_address="ed25519_pk1uadm2958qvrta7e0j275ftrxtth5p9txaqq3gg9z5fxg0zxq0d3sa9yyys"' '' \
+"02-update-pledge"       "FST:  update" "FST"
 
 ###
 ### Invalid cases
@@ -38,11 +47,11 @@ i=${start}
 f=$(ls *.json | head -n1 | xargs echo)
 id=$(jq .id <$f | xargs echo | cut -d_ -f2)
 echo f=${f} id=${id}
-eval $inc; $def --no-generate --id "${id}" '' "ls; mv ${id}"'.{json,sig}' \
-"$i-delete-and-modify" "$i: Delete! And! Modify!"
+eval $inc; $def --no-generate --no-sig --id "${id}" '' "mv ${id}.{json,sig}" \
+"$i-modify" "$i:  Modify!"
 
-eval $inc; $def --no-generate '' 'rm *.json' \
-"$i-drop-files"
+eval $inc; $def --no-generate --no-sig '' 'rm *.json' \
+"$i-drop-files" "$1:  Delete!"
 
 eval $inc; $def  '' '' \
 "$i-commit-message" "Sandals of God"
@@ -56,10 +65,10 @@ $def --no-preclean --same-branch '' '' \
 ###
 ### file hierarchy
 ###
-eval $inc; $def --no-generate '' 'touch ../{somewhere,something}' \
+eval $inc; $def --no-generate --no-sig '' 'touch ../{somewhere,something}' \
 "$i-not-in-registry"
 
-eval $inc; $def --no-generate  '' 'mkdir somewhere; touch somewhere/{else,and.again}' \
+eval $inc; $def --no-generate --no-sig '' 'mkdir somewhere; touch somewhere/{else,and.again}' \
 "$i-not-in-registry-either"
 
 eval $inc; $def  '' 'cp ${id}.json ${id}1.json' \
@@ -118,6 +127,15 @@ eval $inc; $def  '.ticker="NO"' '' \
 
 eval $inc; $def  '.ticker="FST"' '' \
 "$i-duplicate-ticker"
+
+###
+### signature
+###
+eval $inc; $def  '' 'echo -n ed25519_sig1se9knlfd3uny0mp5wc8yc0f20vsz4yjm2c2zklg6fsdy7500w8vln6qwtfnseajn6g3ztyfll8swjxef0804sge67m7huh3mup5dspg3juxmu > ${id}.sig' \
+"$i-signature-mismatch"
+
+eval $inc; $def  '' 'echo 1 > ${id}.sig' \
+"$i-malformed-signature"
 
 cat <<EOF
 

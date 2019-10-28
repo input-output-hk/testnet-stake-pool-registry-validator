@@ -56,4 +56,7 @@ ${cmd}
 banner "Validating commit message.."
 validateCommitMessage
 
+banner "Validating signature.."
+validateSignature
+
 banner "Checks passed."

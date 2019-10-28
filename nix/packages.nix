@@ -29,6 +29,6 @@ in {
   shell     = ghc.shellFor {
     packages    = p: [final-inferred];
     withHoogle  = true;
-    buildInputs = extras ++ [final-inferred];
+    buildInputs = extras ++ [final-inferred pkgs.jq];
   };
 }
