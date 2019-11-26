@@ -83,10 +83,10 @@ parseCLI :: Parser CLI
 parseCLI = Opt.subparser $
   command' "validate-submission" "Validate stake pool registry entry submission."
     (ValidateSubmission
-       <$> (RegistryRoot <$> parseFilePath
+       <$> (RegistryRoot <$> parseFilePath "DIR"
               "registry-root"
               "Root directory of the testnet stake pool registry.")
-       <*> (SubmissionFile <$> parseFilePath
+       <*> (SubmissionFile <$> parseFilePath "FILEPATH"
               "registry-submission"
               "File to scrutinise for registry submission.")) <>
   command' "prepare-submission" "Make a stake pool registry entry submission."
@@ -100,7 +100,7 @@ parseCLI = Opt.subparser $
        <*> parsePledgeAddress
               "pledge-address"
               "Pledge address, Bech32-encoded string."
-       <*> (PublicKeyFile <$> parseFilePath
+       <*> (PublicKeyFile <$> parseFilePath "FILEPATH"
               "public-key-file"
               "Public key file, Bech32-encoded -- output of 'jcli key to-public'"))
  where
@@ -119,9 +119,9 @@ parseCLI = Opt.subparser $
      (Opt.option (Opt.eitherReader validatePledgeAddress) $
        long opt <> help desc <> metavar "PLEDGE-ADDRESS")
 
-   parseFilePath :: String -> String -> Parser FilePath
-   parseFilePath optname desc =
-     strOption $ long optname <> metavar "PUBLICKEY-FILE" <> help desc
+   parseFilePath :: String -> String -> String -> Parser FilePath
+   parseFilePath meta optname desc =
+     strOption $ long optname <> metavar meta <> help desc
 
    command'
      :: Prelude.String
@@ -146,7 +146,7 @@ data CLI
       -- ^ Ticker, 3-4 upper-case ASCII letters.
       !URI.URI
       -- ^ Absolute URI of the stake pool  homepage.
-      !PledgeAddress 
+      !PledgeAddress
       -- ^ Pledge address, Bech32-encoded.
       !PublicKeyFile
       -- ^ Public key file, Bech32-encoded.
@@ -240,7 +240,7 @@ writeRegistrySubmission s = do
 
    outputName :: Text
    outputName = bechUnprefixedText . unId $ sId s
-     
+
 --------------------------------------------------------------------------------
 -- * Main validator
 --
