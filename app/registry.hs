@@ -104,7 +104,7 @@ parseCLI = Opt.subparser $
               "ticker"
               "3 to 5 upper-ASCII-character stake pool ticker."
        <*> parseURI
-              "pool-web"
+              "homepage"
               "Absolute URI of the stake pool's public web presence."
        <*> parsePledgeAddress
               "pledge-address"
