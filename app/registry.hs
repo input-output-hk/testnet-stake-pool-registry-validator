@@ -15,6 +15,8 @@ import           Prelude hiding (fail)
 
 import           Data.Either
 import           Control.Applicative(optional)
+import           Control.Arrow (first)
+import           Control.Monad (unless)
 import           Control.Monad.Extra (unlessM, void)
 import           Control.Monad.Fail (MonadFail(..))
 import           Control.Monad.Trans.Class (lift)
@@ -380,8 +382,12 @@ validatePublicKey :: MonadFail m => Text -> m Owner
 validatePublicKey text =
   if      not ((Char.toLower <$> s) == s)
   then fail $ "Public key not all-lowercase: " <> s
-  else Owner <$> decodeBech32 "Owner Public key" publicKeyHRP text
-  where s = unpack text
+  else Owner <$> decodeBech32 "Owner Public key" publicKeyHRP isPublicKey text
+  where
+    s = unpack text
+    isPublicKey bech32@(Bech32 _ datapart) = bech32 <$ do
+      unless ((BS.length <$> Bech32.dataPartToBytes datapart) == Just pubkeyLength) $
+        fail "Invalid public key length."
 
 validateTicker :: MonadFail m => String -> m Ticker
 validateTicker s =
@@ -402,10 +408,41 @@ validateURI s =
           | uriScheme == "https:" -> pure x
           | otherwise -> fail $ "Not an https URI: " <> s
 
+-- | Based on the following ABNF grammar, and assuming a testing discrimination:
+--
+--     ADDRESS           = ADDRESS-SINGLE / ADDRESS-GROUP / ADDRESS-ACCOUNT / ADDRESS-MULTISIG
+--     ADDRESS-SINGLE    = (%x03 / %x83) SPENDINGKEY
+--     ADDRESS-GROUP     = (%x04 / %x84) SPENDINGKEY SINGLE-ACNT-ID
+--     ADDRESS-ACCOUNT   = (%x05 / %x85) SINGLE-ACNT-ID
+--     ADDRESS-MULTISIG  = (%x06 / %x86) MULTI-ACNT-ID
+--
+--     SPENDINGKEY       = 32OCTET
+--     SINGLE-ACNT-ID    = 32OCTET
+--     MULTI-ACNT-ID     = 32OCTET
+--
+-- source: https://github.com/input-output-hk/chain-libs/blob/master/chain-impl-mockchain/doc/format.abnf#L157-L161
 validatePledgeAddress :: MonadFail m => String -> m PledgeAddress
 validatePledgeAddress s =
   PledgeAddress <$>
-    decodeBech32 "Pledge address" addrHRP (pack s)
+    decodeBech32 "Pledge address" addrHRP isAddress (pack s)
+  where
+    isAddress bech32@(Bech32 _ datapart) = case Bech32.dataPartToBytes datapart of
+      Nothing -> fail "Couldn't decode address internal payload!?"
+      Just bytes -> bech32 <$ case first BS.unpack (BS.splitAt 1 bytes) of
+        (discriminant, rest) | discriminant == [0x83] ->
+          unless (BS.length rest == pubkeyLength) $ fail
+            "Invalid payload for a 'single' address."
+        (discriminant, rest) | discriminant == [0x84] ->
+          unless (BS.length rest == 2*pubkeyLength) $ fail
+            "Invalid payload for a 'grouped' address."
+        (discriminant, rest) | discriminant == [0x85] ->
+          unless (BS.length rest == pubkeyLength) $ fail
+            "Invalid payload for an 'account' address."
+        (discriminant, rest) | discriminant == [0x86] ->
+          unless (BS.length rest == pubkeyLength) $ fail
+            "Invalid payload for a 'multisig' address."
+        _ ->
+          fail "Unrecognized network discriminant for the given address."
 
 validateName :: MonadFail m => Text -> m Name
 validateName =
@@ -447,14 +484,19 @@ publicKeyHRP
 publicKeyHRP =
   either (error . show) id $ Bech32.humanReadablePartFromText "ed25519_pk"
 
+-- | Typical length of a public key (non-extended)
+pubkeyLength :: Int
+pubkeyLength = 32
+
 -- | Given a description and a Bech32 decoder, run it on the input text.
 decodeBech32
   :: MonadFail m
   => String
   -> Bech32.HumanReadablePart
+  -> (Bech32 -> m Bech32)
   -> Text
   -> m Bech32
-decodeBech32 desc expectedHumanPart text =
+decodeBech32 desc expectedHumanPart validate text =
   case Bech32.decodeLenient text of
     Left e ->
       fail $ desc <> " decoding error for '"<>unpack text<>"':\n" <> show e
@@ -466,7 +508,7 @@ decodeBech32 desc expectedHumanPart text =
         , "Expected prefix is:", show expected
         ]
     Right (humanPart, dataPart) ->
-      pure $ Bech32 humanPart dataPart
+      validate $ Bech32 humanPart dataPart
 
 --------------------------------------------------------------------------------
 -- * Instances
