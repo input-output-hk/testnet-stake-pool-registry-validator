@@ -380,7 +380,7 @@ validatePublicKey :: MonadFail m => Text -> m Owner
 validatePublicKey text =
   if      not ((Char.toLower <$> s) == s)
   then fail $ "Public key not all-lowercase: " <> s
-  else Owner <$> decodeBech32 "Owner Public key" Bech32.decode text
+  else Owner <$> decodeBech32 "Owner Public key" publicKeyHRP text
   where s = unpack text
 
 validateTicker :: MonadFail m => String -> m Ticker
@@ -405,7 +405,7 @@ validateURI s =
 validatePledgeAddress :: MonadFail m => String -> m PledgeAddress
 validatePledgeAddress s =
   PledgeAddress <$>
-    decodeBech32 "Pledge address" Bech32.decodeLenient (pack s)
+    decodeBech32 "Pledge address" addrHRP (pack s)
 
 validateName :: MonadFail m => Text -> m Name
 validateName =
@@ -437,18 +437,36 @@ validateLength desc (minLength, maxLength) txt =
     , show maxLength
     ]
 
+addrHRP
+  :: Bech32.HumanReadablePart
+addrHRP =
+  either (error . show) id $ Bech32.humanReadablePartFromText "addr"
+
+publicKeyHRP
+  :: Bech32.HumanReadablePart
+publicKeyHRP =
+  either (error . show) id $ Bech32.humanReadablePartFromText "ed25519_pk"
+
 -- | Given a description and a Bech32 decoder, run it on the input text.
 decodeBech32
   :: MonadFail m
   => String
-  -> (Text
-      -> Either Bech32.DecodingError (Bech32.HumanReadablePart, Bech32.DataPart))
+  -> Bech32.HumanReadablePart
   -> Text
   -> m Bech32
-decodeBech32 desc decoder text =
-  case decoder text of
-    Left e -> fail $ desc <> " decoding error for '"<>unpack text<>"':\n" <> show e
-    Right (humanPart, dataPart) -> pure $ Bech32 humanPart dataPart
+decodeBech32 desc expectedHumanPart text =
+  case Bech32.decodeLenient text of
+    Left e ->
+      fail $ desc <> " decoding error for '"<>unpack text<>"':\n" <> show e
+    Right (humanPart, _) | humanPart /= expectedHumanPart -> do
+      let actual = Bech32.humanReadablePartToText humanPart
+      let expected = Bech32.humanReadablePartToText expectedHumanPart
+      fail $ unwords
+        [ desc, "has an unexpected human-readable part (", show actual , ")."
+        , "Expected prefix is:", show expected
+        ]
+    Right (humanPart, dataPart) ->
+      pure $ Bech32 humanPart dataPart
 
 --------------------------------------------------------------------------------
 -- * Instances
