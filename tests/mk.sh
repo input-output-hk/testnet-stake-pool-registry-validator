@@ -7,7 +7,7 @@ NO_SIG=
 NO_PRECLEAN=
 NO_POSTCLEAN=
 SAME_BRANCH=
-ID=
+OWNER=
 PRV_FILE=
 while true; do case "$1" in
                        --private ) PRV_FILE="$2"; shift 2;;
@@ -16,7 +16,7 @@ while true; do case "$1" in
                        --no-preclean ) NO_PRECLEAN=1; shift;;
                        --no-postclean ) NO_POSTCLEAN=1; shift;;
                        --same-branch ) SAME_BRANCH=1; shift;;
-                       --id ) ID="$2"; shift 2;;
+                       --owner ) OWNER="$2"; shift 2;;
                        -v | --verbose ) set -x; shift;;
                        * ) break; esac; done
 
@@ -35,36 +35,38 @@ then git checkout "master"
      git reset --hard
      git clean -f; fi
 
-if test -z "${ID}"
+if test -z "${OWNER}"
 then if test -z "${PRV_FILE}"
      then jcli key generate --type "ed25519" ${prv}; fi
      jcli key to-public            --input   ${prv} ${pub}; fi
 
-id=${ID:-$(cut -d_ -f2 ${pub} | head -n1)}
+owner=${OWNER:-${pub}}
 
 JSONtransform="$1"
 SHtransform="$2"
 branch="$3"
 message="${4:-NUON:  new}"
 ticker=${5:-NUON}
+name=${6:-"Ada Lovelace"}
 
 if test -z "${NO_GENERATE}"
 then registry prepare-submission \
        --public-key-file ${pub} \
        --ticker ${ticker} \
-       --pool-web https://12345 \
-       --pledge-address ed25519_pk15vz9yc5c3upgze8tg5kd7kkzxqgqfxk5a3kudp22hdg0l2za00sq2ufkk7 &&
-       if test ! -f ${id}.json
-       then echo "ERROR: ${id}.json wasn't created!" >&2; exit 1; fi; fi
+       --name ${name} \
+       --homepage https://12345 \
+       --pledge-address addr1svklmf8yl78x9cw30ystvprhxtm790k4380xlsjrjqn2p8nekup8uvzfezl &&
+       if test ! -f ${owner}.json
+       then echo "ERROR: ${owner}.json wasn't created!" >&2; exit 1; fi; fi
 
 if test -n "$JSONtransform"
 then jq  --indent 4 --join-output \
-        "$JSONtransform" > ${tmp} < ${id}.json &&
-     mv -f                 ${tmp}   ${id}.json; fi
+        "$JSONtransform" > ${tmp} < ${owner}.json &&
+     mv -f                 ${tmp}   ${owner}.json; fi
 
 if test -z "${NO_SIG}"
-then rm -f ${id}.sig
-     jcli key sign --secret-key ${prv} --output ${id}.sig ${id}.json; fi
+then rm -f ${owner}.sig
+     jcli key sign --secret-key ${prv} --output ${owner}.sig ${owner}.json; fi
 
 if test -n "$SHtransform"
 then eval ${SHtransform}; fi
@@ -75,6 +77,6 @@ then if test -z "${SAME_BRANCH}"
 
      git add --all
      git commit -m "${message}"
-     
+
      if test -z "${NO_POSTCLEAN}"
      then git checkout master; fi; fi
