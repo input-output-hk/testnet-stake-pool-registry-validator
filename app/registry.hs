@@ -14,6 +14,7 @@
 import           Prelude hiding (fail)
 
 import           Data.Either
+import           Control.Applicative(optional)
 import           Control.Monad.Extra (unlessM, void)
 import           Control.Monad.Fail (MonadFail(..))
 import           Control.Monad.Trans.Class (lift)
@@ -61,8 +62,8 @@ main = do
     case cmd of
       ValidateSubmission root submission ->
         void $ validateRegistrySubmission root submission
-      PrepareSubmission ticker uri pledge fp ->
-        prepareRegistrySubmission ticker uri pledge fp
+      PrepareSubmission name desc ticker uri pledge fp ->
+        prepareRegistrySubmission name desc ticker uri pledge fp
           >>= writeRegistrySubmission
   case res of
     Left e -> do
@@ -91,9 +92,15 @@ parseCLI = Opt.subparser $
               "File to scrutinise for registry submission.")) <>
   command' "prepare-submission" "Make a stake pool registry entry submission."
     (PrepareSubmission
-       <$> parseTicker
+       <$> parseName
+              "name"
+              "1 to 50 UTF-16 characters."
+       <*> optional (parseDescription
+              "description"
+              "optional 1 to 255 UTF-16 characters.")
+       <*> parseTicker
               "ticker"
-              "3-or-4 upper-ASCII-character stake pool ticker."
+              "3 to 5 upper-ASCII-character stake pool ticker."
        <*> parseURI
               "pool-web"
               "Absolute URI of the stake pool's public web presence."
@@ -104,6 +111,16 @@ parseCLI = Opt.subparser $
               "public-key-file"
               "Public key file, Bech32-encoded -- output of 'jcli key to-public'"))
  where
+   parseName :: String -> String -> Parser Name
+   parseName opt desc =
+     (Opt.option (Opt.eitherReader (validateName . Text.pack)) $
+       long opt <> help desc <> metavar "NAME")
+
+   parseDescription :: String -> String -> Parser Description
+   parseDescription opt desc =
+     (Opt.option (Opt.eitherReader (validateDescription . Text.pack)) $
+       long opt <> help desc <> metavar "DESCRIPTION")
+
    parseTicker :: String -> String -> Parser Ticker
    parseTicker opt desc =
      (Opt.option (Opt.eitherReader validateTicker) $
@@ -142,8 +159,12 @@ data CLI
       -- ^ File scrutinised as a submission.
 
   | PrepareSubmission
+      !Name
+      -- ^ A short name, max 50 characters
+      !(Maybe Description)
+      -- ^ An optional description, max 255 characters
       !Ticker
-      -- ^ Ticker, 3-4 upper-case ASCII letters.
+      -- ^ Ticker, 3-5 upper-case ASCII letters.
       !URI.URI
       -- ^ Absolute URI of the stake pool  homepage.
       !PledgeAddress
@@ -164,20 +185,30 @@ newtype PublicKeyFile =
   deriving (Eq, Ord, Show, IsString)
 
 data Submission = Submission
-  { sId :: !Id
+  { sOwner :: !Owner
+  , sName :: !Name
+  , sDescription :: !(Maybe Description)
   , sTicker :: !Ticker
     -- | Absolute URI.
   , sHomepage :: !URI.URI
   , sPledgeAddress :: PledgeAddress
   } deriving (Generic)
 
--- | Stake pool ID, Bech32-encoded public key.
-newtype Id = Id { unId :: Bech32 }
+-- | An owner public key, Bech32-encoded
+newtype Owner = Owner { unOwner :: Bech32 }
   deriving (Eq)
 
--- | Stake pool ticker, a 3-4 all-ASCII-uppercase character ID.
+-- | Stake pool ticker, a 3-5 all-ASCII-uppercase character ID.
 newtype Ticker = Ticker { unTicker :: Text }
   deriving (Eq, Ord, Show)
+
+-- | Stake pool name, free form text 1-50 characters
+newtype Name = Name { unName :: Text }
+  deriving (Eq, Show)
+
+-- | Stake pool description, free form text 1-255 characters
+newtype Description = Description { unDescription :: Text }
+  deriving (Eq, Show)
 
 -- | Bech32-encoded address.
 newtype PledgeAddress = PledgeAddress { unPledgeAddress :: Bech32 }
@@ -205,12 +236,14 @@ computeFullPublicKeyText = ((pack (show registryPubKeyType) <> "_") <>)
 --------------------------------------------------------------------------------
 -- * Submission maker
 prepareRegistrySubmission
-  :: Ticker
+  :: Name
+  -> Maybe Description
+  -> Ticker
   -> URI.URI
   -> PledgeAddress
   -> PublicKeyFile
   -> ExceptT Text IO Submission
-prepareRegistrySubmission ticker uri pledge (PublicKeyFile fp) = do
+prepareRegistrySubmission name desc ticker uri pledge (PublicKeyFile fp) = do
   unlessM (lift $ Dir.doesFileExist fp) $
     checks ["Public key doesn't exist: " <> pack fp]
   unlessM (lift $ Dir.readable <$> Dir.getPermissions fp) $
@@ -219,7 +252,7 @@ prepareRegistrySubmission ticker uri pledge (PublicKeyFile fp) = do
   contents <- Text.strip <$> (lift $ Text.readFile fp)
   pubKey <- validatePublicKey contents
 
-  pure $ Submission pubKey ticker uri pledge
+  pure $ Submission pubKey name desc ticker uri pledge
  where
    err :: [Text] -> ExceptT Text IO a
    err es = ExceptT . pure . Left . Text.unlines $ es
@@ -239,7 +272,7 @@ writeRegistrySubmission s = do
    sig  = unpack outputName <.> "sig"
 
    outputName :: Text
-   outputName = bechUnprefixedText . unId $ sId s
+   outputName = bechUnprefixedText . unOwner $ sOwner s
 
 --------------------------------------------------------------------------------
 -- * Main validator
@@ -296,10 +329,10 @@ validateRegistrySubmission (RegistryRoot root) (SubmissionFile fp) = do
     Right entry -> do
 
       checks $
-        [ pack $ "Internal 'id' doesn't match filename: "
-          <> show (bechUnprefixedText . unId $ sId entry) <> " vs. "
-          <> show (bechUnprefixedText . unId $ pubkey)
-        | sId entry /= pubkey ]
+        [ pack $ "Internal 'owner' doesn't match filename: "
+          <> show (bechUnprefixedText . unOwner $ sOwner entry) <> " vs. "
+          <> show (bechUnprefixedText . unOwner $ pubkey)
+        | sOwner entry /= pubkey ]
 
       -- All cheap checks done, let's do the expensive one now.
       dupTickers <- withExceptT (("While reading all registry entries: "<>)) $
@@ -344,19 +377,19 @@ validateRegistrySubmission (RegistryRoot root) (SubmissionFile fp) = do
 --
 -- | Submission identifier is actually a public key.
 --   We additionally require that the string must be all-lowercase.
-validatePublicKey :: MonadFail m => Text -> m Id
+validatePublicKey :: MonadFail m => Text -> m Owner
 validatePublicKey text =
   if      not ((Char.toLower <$> s) == s)
   then fail $ "Public key not all-lowercase: " <> s
-  else Id <$> decodeBech32 "Public key" Bech32.decode text
+  else Owner <$> decodeBech32 "Owner Public key" Bech32.decode text
   where s = unpack text
 
 validateTicker :: MonadFail m => String -> m Ticker
 validateTicker s =
-  if (length s >= 3 && length s <= 4
+  if (length s >= 3 && length s <= 5
        && all Char.isAsciiUpper s)
   then pure $ Ticker (pack s)
-  else fail $ "Not an uppercase ASCII of length 3 or 4: " <> take 32 s
+  else fail $ "Not an uppercase ASCII of length 3 to 5: " <> take 32 s
 
 validateURI :: MonadFail m => String -> m URI.URI
 validateURI s =
@@ -374,6 +407,36 @@ validatePledgeAddress :: MonadFail m => String -> m PledgeAddress
 validatePledgeAddress s =
   PledgeAddress <$>
     decodeBech32 "Pledge address" Bech32.decodeLenient (pack s)
+
+validateName :: MonadFail m => Text -> m Name
+validateName =
+  fmap Name . validateLength "Name" (minLength, maxLength)
+    where
+      minLength = 1
+      maxLength = 50
+
+validateDescription :: MonadFail m => Text -> m Description
+validateDescription =
+  fmap Description . validateLength "Description" (minLength, maxLength)
+    where
+      minLength = 1
+      maxLength = 255
+
+validateLength :: MonadFail m => String -> (Int, Int) -> Text -> m Text
+validateLength desc (minLength, maxLength) txt =
+  let n = Text.length txt in
+  if n >= minLength && n <= maxLength
+  then pure txt
+  else fail $ unwords
+    [ desc
+    , "has an invalid length ("
+    , show n
+    , ")"
+    , ". Length should be between"
+    , show minLength
+    , ","
+    , show maxLength
+    ]
 
 -- | Given a description and a Bech32 decoder, run it on the input text.
 decodeBech32
@@ -401,7 +464,9 @@ instance FromJSON Submission where
   parseJSON = AE.withObject "Submission" $ \v->
     case validateFields v of
       [] -> Submission
-              <$> v .: "id" <?> AE.Key "id"
+              <$> v .: "owner" <?> AE.Key "owner"
+              <*> v .: "name" <?> AE.Key "name"
+              <*> v .: "description" <?> AE.Key "description"
               <*> v .: "ticker" <?> AE.Key "ticker"
               <*> v .: "homepage" <?> AE.Key "homepate"
               <*> v .: "pledge_address" <?> AE.Key "pledge_address"
@@ -416,20 +481,29 @@ instance FromJSON Submission where
               keys, mandatory, optional', missing, unexpected :: Set Text
               keys = Set.fromList $ HMap.keys v
               mandatory = Set.fromList
-                [ "id"
+                [ "owner"
+                , "name"
                 , "ticker"
                 , "homepage"
                 , "pledge_address"
                 ]
-              optional' = mempty
+              optional' = Set.fromList
+                [ "description"
+                ]
               missing = mandatory `Set.difference` keys
               unexpected = keys `Set.difference` (mandatory <> optional')
 
               commaList :: Set Text -> String
               commaList = List.intercalate ", " . (show . unpack <$>) . Set.toList
 
-instance FromJSON Id where
-  parseJSON = AE.withText "Id" $ validatePublicKey
+instance FromJSON Owner where
+  parseJSON = AE.withText "Owner" $ validatePublicKey
+
+instance FromJSON Name where
+  parseJSON = AE.withText "Name" $ validateName
+
+instance FromJSON Description where
+  parseJSON = AE.withText "Description" $ validateDescription
 
 instance FromJSON Ticker where
   parseJSON = AE.withText "Ticker" $
@@ -443,14 +517,22 @@ instance FromJSON PledgeAddress where
 
 instance ToJSON Submission where
   toJSON s = AE.object $
-    [ "id"                   .= sId s
+    [ "owner"                .= sOwner s
+    , "name"                 .= sName s
+    , "description"          .= sDescription s
     , "ticker"               .= sTicker s
     , "homepage"             .= sHomepage s
     , "pledge_address"       .= sPledgeAddress s
     ]
 
-instance ToJSON Id where
-  toJSON = toJSON . unId
+instance ToJSON Owner where
+  toJSON = toJSON . unOwner
+
+instance ToJSON Name where
+  toJSON = toJSON . unName
+
+instance ToJSON Description where
+  toJSON = toJSON . unDescription
 
 instance ToJSON Ticker where
   toJSON = AE.String . unTicker

@@ -83,6 +83,6 @@ validateCommitMessage() {
 
 validateSignature() {
         pub=$(mktemp "XXXXXXXXX.pub")
-        jq '.id' ${entry} | xargs echo > ${pub}
+        jq '.owner' ${entry} | xargs echo > ${pub}
         jcli key verify --public-key ${pub} --signature "${sig}" "${entry}"
 }
