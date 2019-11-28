@@ -217,7 +217,6 @@ newtype PledgeAddress = PledgeAddress { unPledgeAddress :: Bech32 }
 data Bech32 = Bech32
   { bechHumanReadable  :: Bech32.HumanReadablePart
   , bechDataPart       :: Bech32.DataPart
-  , bechUnprefixedText :: Text
   } deriving (Eq)
 
 -- | Type of public key.
@@ -272,7 +271,7 @@ writeRegistrySubmission s = do
    sig  = unpack outputName <.> "sig"
 
    outputName :: Text
-   outputName = bechUnprefixedText . unOwner $ sOwner s
+   outputName = encodeBech32 $ unOwner $ sOwner s
 
 --------------------------------------------------------------------------------
 -- * Main validator
@@ -330,8 +329,8 @@ validateRegistrySubmission (RegistryRoot root) (SubmissionFile fp) = do
 
       checks $
         [ pack $ "Internal 'owner' doesn't match filename: "
-          <> show (bechUnprefixedText . unOwner $ sOwner entry) <> " vs. "
-          <> show (bechUnprefixedText . unOwner $ pubkey)
+          <> show (encodeBech32 $ unOwner $ sOwner entry) <> " vs. "
+          <> show (encodeBech32 $ unOwner $ pubkey)
         | sOwner entry /= pubkey ]
 
       -- All cheap checks done, let's do the expensive one now.
@@ -449,13 +448,7 @@ decodeBech32
 decodeBech32 desc decoder text =
   case decoder text of
     Left e -> fail $ desc <> " decoding error for '"<>unpack text<>"':\n" <> show e
-    Right (humanPart, dataPart) -> pure $ Bech32 humanPart dataPart unprefixed
-      where
-        unprefixed :: Text
-        unprefixed = case Text.splitOn "_" text of
-                       []  -> error "Invariant failed:  Text.splitOn returned empty list."
-                       _:[] -> error "Invariant failed:  decoder succeeded on an unprefixed input text."
-                       _:x:_ -> x
+    Right (humanPart, dataPart) -> pure $ Bech32 humanPart dataPart
 
 --------------------------------------------------------------------------------
 -- * Instances
@@ -544,10 +537,10 @@ instance Show Bech32 where
   show = show . bechHumanReadable
 
 instance ToJSON Bech32 where
-  toJSON b = either (error . show) AE.String $ encodeBech32 b
+  toJSON = toJSON . encodeBech32
 
-encodeBech32 :: Bech32 -> Either String Text
-encodeBech32 b = bimap show id $ Bech32.encode (bechHumanReadable b) (bechDataPart b)
+encodeBech32 :: Bech32 -> Text
+encodeBech32 (Bech32 hrp datapart) = Bech32.encodeLenient hrp datapart
 
 --------------------------------------------------------------------------------
 -- * Ancillary
