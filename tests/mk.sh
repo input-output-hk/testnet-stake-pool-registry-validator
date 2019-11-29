@@ -40,22 +40,22 @@ then if test -z "${PRV_FILE}"
      then jcli key generate --type "ed25519" ${prv}; fi
      jcli key to-public            --input   ${prv} ${pub}; fi
 
-owner=${OWNER:-${pub}}
+owner=${OWNER:-$(cat ${pub} | xargs echo -n)}
 
 JSONtransform="$1"
 SHtransform="$2"
 branch="$3"
 message="${4:-NUON:  new}"
 ticker=${5:-NUON}
-name=${6:-"Ada Lovelace"}
+name="${6:-Ada Lovelace}"
 
 if test -z "${NO_GENERATE}"
 then registry prepare-submission \
        --public-key-file ${pub} \
        --ticker ${ticker} \
-       --name ${name} \
+       --name "${name}" \
        --homepage https://12345 \
-       --pledge-address addr1svklmf8yl78x9cw30ystvprhxtm790k4380xlsjrjqn2p8nekup8uvzfezl &&
+       --pledge-address "addr1svklmf8yl78x9cw30ystvprhxtm790k4380xlsjrjqn2p8nekup8uvzfezl" &&
        if test ! -f ${owner}.json
        then echo "ERROR: ${owner}.json wasn't created!" >&2; exit 1; fi; fi
 

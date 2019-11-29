@@ -231,9 +231,6 @@ instance Show PubKeyType where
 registryPubKeyType :: PubKeyType
 registryPubKeyType = Ed25519
 
-computeFullPublicKeyText :: Text -> Text
-computeFullPublicKeyText = ((pack (show registryPubKeyType) <> "_") <>)
-
 --------------------------------------------------------------------------------
 -- * Submission maker
 prepareRegistrySubmission
@@ -318,7 +315,7 @@ validateRegistrySubmission (RegistryRoot root) (SubmissionFile fp) = do
     ["Submission filename doesn't have .json extension: " <> pack file
     | ext /= ".json" ]
 
-  let derivedPubKey = computeFullPublicKeyText (pack pubkeyFile)
+  let derivedPubKey = pack pubkeyFile
   pubkey <- case validatePublicKey derivedPubKey of
     Left e -> err $
       ["Submission filename (actually public key) invalid: " <> pack e]

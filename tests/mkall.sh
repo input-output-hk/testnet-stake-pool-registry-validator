@@ -5,7 +5,7 @@ set -e
 git clean -f
 git checkout master
 git branch | grep -v master | sed 's/*//g' | xargs git branch -D 2>/dev/null || true
-def="$(dirname $0)/mk.sh"
+def="$(dirname $0)/mk.sh -v"
 inc='i=$((i+1)); total=$((total+1))'
 total=0
 
@@ -30,7 +30,9 @@ $def  '' '' \
 $def --private ${key01} --no-generate '.ticker="OTHR"' '' \
 "01-update-ticker"       "OTHR:  update"
 
-$def --private ${key01} --no-generate '.pledge_address="addr1svklmf8yl78x9cw30ystvprhxtm790k4380xlsjrjqn2p8nekup8uvzfezl"' '' \
+## NOTE: to generate a pledge address:
+##       jcli address single --testing --prefix addr ${pub}
+$def --private ${key01} --no-generate '.pledge_address="addr1sdv9tzwxjju6sp5r953kpj3mwyd9p9mwrxlmv0ae72par6wurw622q36lzs"' '' \
 "02-update-pledge"       "FST:  update" "FST"
 
 ###
@@ -45,7 +47,7 @@ i=${start}
 ### change structure
 ###
 f=$(ls *.json | head -n1 | xargs echo)
-owner=$(jq .owner)
+owner=$(jq .owner <$f)
 echo f=${f} owner=${owner}
 eval $inc; $def --no-generate --no-sig --owner "${owner}" '' "mv ${owner}.{json,sig}" \
 "$i-modify" "$i:  Modify!"
