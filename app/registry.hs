@@ -519,7 +519,7 @@ instance FromJSON Submission where
               <*> v .: "name" <?> AE.Key "name"
               <*> v .: "description" <?> AE.Key "description"
               <*> v .: "ticker" <?> AE.Key "ticker"
-              <*> v .: "homepage" <?> AE.Key "homepate"
+              <*> v .: "homepage" <?> AE.Key "homepage"
               <*> v .: "pledge_address" <?> AE.Key "pledge_address"
       xs -> fail $ List.unlines xs
     where validateFields :: AE.Object -> [String]
