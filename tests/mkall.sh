@@ -30,7 +30,7 @@ $def  '' '' \
 $def --private ${key01} --no-generate '.ticker="OTHR"' '' \
 "01-update-ticker"       "OTHR:  update"
 
-$def --private ${key01} --no-generate '.pledge_address="ed25519_pk1uadm2958qvrta7e0j275ftrxtth5p9txaqq3gg9z5fxg0zxq0d3sa9yyys"' '' \
+$def --private ${key01} --no-generate '.pledge_address="addr1svklmf8yl78x9cw30ystvprhxtm790k4380xlsjrjqn2p8nekup8uvzfezl"' '' \
 "02-update-pledge"       "FST:  update" "FST"
 
 ###
@@ -45,9 +45,9 @@ i=${start}
 ### change structure
 ###
 f=$(ls *.json | head -n1 | xargs echo)
-id=$(jq .id <$f | xargs echo | cut -d_ -f2)
-echo f=${f} id=${id}
-eval $inc; $def --no-generate --no-sig --id "${id}" '' "mv ${id}.{json,sig}" \
+owner=$(jq .owner)
+echo f=${f} owner=${owner}
+eval $inc; $def --no-generate --no-sig --owner "${owner}" '' "mv ${owner}.{json,sig}" \
 "$i-modify" "$i:  Modify!"
 
 eval $inc; $def --no-generate --no-sig '' 'rm *.json' \
@@ -71,14 +71,14 @@ eval $inc; $def --no-generate --no-sig '' 'touch ../{somewhere,something}' \
 eval $inc; $def --no-generate --no-sig '' 'mkdir somewhere; touch somewhere/{else,and.again}' \
 "$i-not-in-registry-either"
 
-eval $inc; $def  '' 'cp ${id}.json ${id}1.json' \
+eval $inc; $def  '' 'cp ${owner}.json ${owner}1.json' \
 "$i-too-many-files"
 
 ###
 ### file names
 ###
-eval $inc; $def  '' 'mv ${id}.json terrible.json' \
-"$i-file-id"
+eval $inc; $def  '' 'mv ${owner}.json terrible.json' \
+"$i-file-owner"
 
 ###
 ### file content
@@ -93,25 +93,25 @@ eval $inc; $def  'del(.homepage)' '' \
 "$i-too-few-fields"
 
 ###
-### file content: Id
+### file content: Owner
 ###
-eval $inc; $def  'del(.id)' '' \
+eval $inc; $def  'del(.owner)' '' \
 "$i-missing-mandatory"
 
 eval $inc; $def  'del(.pledge_address)' '' \
 "$i-missing-mandatory-pledge"
 
-eval $inc; $def  '.id=3.141592653589793' '' \
+eval $inc; $def  '.owner=3.141592653589793' '' \
 "$i-mandatory-field-type"
 
-eval $inc; $def  '.id="ed25519_nsacrypto"' '' \
-"$i-internal-id-length"
+eval $inc; $def  '.owner="ed25519_nsacrypto"' '' \
+"$i-internal-owner-length"
 
-eval $inc; $def  '.id="nsacrypto_pk1dqaghc0luz0m9mr807hyaeprw49rx8ykvpcw6vvldckznl0q0y4qr280s2"' '' \
-"$i-internal-id-format"
+eval $inc; $def  '.owner="nsacrypto_pk1dqaghc0luz0m9mr807hyaeprw49rx8ykvpcw6vvldckznl0q0y4qr280s2"' '' \
+"$i-internal-owner-format"
 
-eval $inc; $def  '.id="ed25519_pk1dqaghc0luz0m9mr807hyaeprw49rx8ykvpcw6vvldckznl0q0y4qr280s2"' '' \
-"$i-id-entry-mismatch"
+eval $inc; $def  '.owner="ed25519_pk1dqaghc0luz0m9mr807hyaeprw49rx8ykvpcw6vvldckznl0q0y4qr280s2"' '' \
+"$i-owner-entry-mismatch"
 
 ###
 ### file content: types
@@ -131,10 +131,10 @@ eval $inc; $def  '.ticker="FST"' '' \
 ###
 ### signature
 ###
-eval $inc; $def  '' 'echo -n ed25519_sig1se9knlfd3uny0mp5wc8yc0f20vsz4yjm2c2zklg6fsdy7500w8vln6qwtfnseajn6g3ztyfll8swjxef0804sge67m7huh3mup5dspg3juxmu > ${id}.sig' \
+eval $inc; $def  '' 'echo -n ed25519_sig1se9knlfd3uny0mp5wc8yc0f20vsz4yjm2c2zklg6fsdy7500w8vln6qwtfnseajn6g3ztyfll8swjxef0804sge67m7huh3mup5dspg3juxmu > ${owner}.sig' \
 "$i-signature-mismatch"
 
-eval $inc; $def  '' 'echo 1 > ${id}.sig' \
+eval $inc; $def  '' 'echo 1 > ${owner}.sig' \
 "$i-malformed-signature"
 
 cat <<EOF
