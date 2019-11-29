@@ -28,13 +28,13 @@
 
 let
   release = rec {
-    version = "0.6.0-pre";
+    version = "0.8.0-rc1+";
     # Git revision of input-output-hk/jormungandr repo.
-    rev = "a4692b762f4b8d92a335f70f5acdfc7afcad3fe8";
+    rev = "9a13696e07517498601c8f49767eb1bac9576cdb";
     # Hash of git repo and all of its submodules.
-    sha256 = "03ijiqhsv17px2lnpzq3bvpq3dy8pmlqdrda100l3mkk1qb7ayjc";
+    sha256 = "1s2sc3fdijgkcxphlb657l9qw7ngqc6vdk6j5qxvh8w7010gfm5n";
     # Hash of all Cargo dependencies.
-    cargoSha256 = "0ms8inl8cp5fla6xvrdgwjkya192mq0181n9yxfm0sk1ncnj8wgc";
+    cargoSha256 = "14v7v9rl04yajwxh7qcpzjnc3swmpdbmjqw7arnms8cbdfbqc9q6";
   };
 
 in {
