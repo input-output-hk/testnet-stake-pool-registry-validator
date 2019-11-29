@@ -391,8 +391,9 @@ validatePublicKey text =
 
 validateTicker :: MonadFail m => String -> m Ticker
 validateTicker s =
-  if (length s >= 3 && length s <= 5
-       && all Char.isAsciiUpper s)
+  if length s >= 3
+  && length s <= 5
+  && all (\c -> Char.isAlphaNum c && (Char.isDigit c || Char.isUpper c)) s
   then pure $ Ticker (pack s)
   else fail $ "Not an uppercase ASCII of length 3 to 5: " <> take 32 s
 
