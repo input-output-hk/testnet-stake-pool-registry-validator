@@ -30,10 +30,16 @@ $def  '' '' \
 $def --private ${key01} --no-generate '.ticker="OTHR"' '' \
 "01-update-ticker"       "OTHR:  update"
 
+$def --private ${key01} --no-generate '.homepage="https://secure.ly"' '' \
+"02-update-homepage"     "FST:  update"
+
+$def --private ${key01} --no-generate '.description="This is winnage"' '' \
+"03-update-description"  "FST:  update"
+
 ## NOTE: to generate a pledge address:
 ##       jcli address single --testing --prefix addr ${pub}
 $def --private ${key01} --no-generate '.pledge_address="addr1sdv9tzwxjju6sp5r953kpj3mwyd9p9mwrxlmv0ae72par6wurw622q36lzs"' '' \
-"02-update-pledge"       "FST:  update" "FST"
+"04-update-pledge"       "FST:  update" "FST"
 
 ###
 ### Invalid cases
@@ -130,6 +136,9 @@ eval $inc; $def  '.ticker="NO"' '' \
 eval $inc; $def  '.ticker="FST"' '' \
 "$i-duplicate-ticker"
 
+eval $inc; $def  '.homepage="http://insecure.ly"' '' \
+"$i-non-https-homepage"
+
 ###
 ### signature
 ###
@@ -141,6 +150,6 @@ eval $inc; $def  '' 'echo 1 > ${owner}.sig' \
 
 cat <<EOF
 
-Generated:  $total total branches
+Generated:  $((total + 7)) total branches
 
 EOF
