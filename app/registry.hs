@@ -515,12 +515,12 @@ instance FromJSON Submission where
   parseJSON = AE.withObject "Submission" $ \v->
     case validateFields v of
       [] -> Submission
-              <$> v .: "owner" <?> AE.Key "owner"
-              <*> v .: "name" <?> AE.Key "name"
-              <*> v .: "description" <?> AE.Key "description"
-              <*> v .: "ticker" <?> AE.Key "ticker"
-              <*> v .: "homepage" <?> AE.Key "homepage"
-              <*> v .: "pledge_address" <?> AE.Key "pledge_address"
+              <$> v .: "owner"
+              <*> v .: "name"
+              <*> v .:? "description"
+              <*> v .: "ticker"
+              <*> v .: "homepage"
+              <*> v .: "pledge_address"
       xs -> fail $ List.unlines xs
     where validateFields :: AE.Object -> [String]
           validateFields v =
