@@ -53,9 +53,6 @@ EOF
 
 ${cmd}
 
-banner "Validating commit message.."
-validateCommitMessage
-
 banner "Validating signature.."
 validateSignature
 
