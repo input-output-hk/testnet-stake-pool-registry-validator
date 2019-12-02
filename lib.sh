@@ -34,9 +34,10 @@ validateEnv() {
 validateGitHistory() {
         export PAGER=cat
 
-        local delta="origin/master..HEAD"
+        local base="$(git merge-base origin/master HEAD)"
+        local delta="${base}..HEAD"
 
-        git log --oneline origin/master..HEAD
+        git log --oneline ${base}
         local history_length=$(git log --oneline ${delta} | wc -l)
         test "${history_length}" = 1 ||
                 error "Git history:  submissions must contain exactly a single commit (this one has ${history_length})."
