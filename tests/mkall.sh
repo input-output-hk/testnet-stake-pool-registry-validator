@@ -61,9 +61,6 @@ eval $inc; $def --no-generate --no-sig --owner "${owner}" '' "mv ${owner}.{json,
 eval $inc; $def --no-generate --no-sig '' 'rm *.json' \
 "$i-drop-files" "$1:  Delete!"
 
-eval $inc; $def  '' '' \
-"$i-commit-message" "Sandals of God"
-
 set -x
 eval $inc; $def --no-postclean  '' '' \
 "$i-history-too-long" # Generate first commit

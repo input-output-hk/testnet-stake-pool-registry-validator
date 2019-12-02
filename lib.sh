@@ -69,17 +69,12 @@ validateGitHistory() {
         ticker=$(jq '.ticker' ${entry} | xargs echo)
 
         case "${delta_type_e}${delta_type_s}" in
-                AA ) expected_commit_message="${ticker}:  new";;
-                MM ) expected_commit_message="${ticker}:  update";;
+                AA ) ;;
+                MM ) ;;
                 * ) error "Delta:  submissions must either add or modify entries/signatures";; esac
 
         test "${delta_dir_e}/${delta_dir_s}" = "registry/registry" ||
                 error "Delta:  submissions must only affect files in 'registry' subdirectory"
-}
-
-validateCommitMessage() {
-        test "${BUILDKITE_MESSAGE}" = "${expected_commit_message}" ||
-                error "Message:  commit message must be:  ${expected_commit_message}"
 }
 
 validateSignature() {
