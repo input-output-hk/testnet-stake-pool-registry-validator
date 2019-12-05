@@ -38,9 +38,6 @@ validateGitHistory() {
         local delta="${base}..HEAD"
 
         git log --oneline ${base}
-        local history_length=$(git log --oneline ${delta} | wc -l)
-        test "${history_length}" = 1 ||
-                error "Git history:  submissions must contain exactly a single commit (this one has ${history_length})."
 
         banner "Validating change structure.."
 
