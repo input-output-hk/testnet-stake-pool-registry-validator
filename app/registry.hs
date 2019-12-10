@@ -402,7 +402,7 @@ validateURI s =
       case uriAuthority of
         Nothing -> fail $ "URI has no authority: " <> s
         Just URI.URIAuth{URI.uriRegName}
-          | length uriRegName < 5 -> fail $ "URI authority too short: " <> s
+          | length uriRegName < 3 -> fail $ "URI authority too short: " <> s
           | uriScheme == "https:" -> pure x
           | otherwise -> fail $ "Not an https URI: " <> s
 
