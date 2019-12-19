@@ -322,8 +322,8 @@ validateRegistrySubmission (RegistryRoot root) (SubmissionFile fp) = do
     Right x -> pure x
 
   contents <- lift $ BSL.fromStrict <$> BS.readFile afp
-  case AE.eitherDecode contents of
-    Left e -> err $ ["Submission content:\n" <> pack e]
+  case AE.eitherDecodeWith AE.jsonNoDup AE.ifromJSON contents of
+    Left (_, e) -> err $ ["Submission content:\n" <> pack e]
     Right entry -> do
 
       checks $
